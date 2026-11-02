@@ -1,0 +1,6 @@
+{
+  "name": "Tchau Papada - Protocolo de 15 Dias",
+  "description": "Quiz interativo e avaliação personalizada do Protocolo Tchau Papada para eliminar a papada em 15 dias sem cirurgia ou cremes caros.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

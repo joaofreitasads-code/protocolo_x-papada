@@ -1,0 +1,89 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background-color: #F9F9F9;
+    color: #1C1513;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@keyframes fadeInStep {
+  0% {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes bounceBtn {
+  0% {
+    opacity: 0.85;
+    transform: scaleY(0.96) scaleX(0.98);
+  }
+  50% {
+    opacity: 0;
+    transform: scaleY(1.3) scaleX(1.05);
+  }
+  100% {
+    opacity: 0.85;
+    transform: scaleY(0.96) scaleX(0.98);
+  }
+}
+
+.animate-fade-in-step {
+  animation: fadeInStep 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: opacity, transform;
+  transform: translateZ(0);
+}
+
+.btn-pulse-wave {
+  animation: bounceBtn 1.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+}
+
+.btn-green-3d {
+  background-color: #17a34a;
+  border-bottom: 4px solid #0e9542;
+  transition: all 0.15s ease-in-out;
+}
+
+.btn-green-3d:hover {
+  background-color: #22c55e;
+  border-bottom: 4px solid #0e9542;
+}
+
+.btn-green-3d:active {
+  transform: translateY(2px);
+  border-bottom-width: 2px;
+}
+
+.option-card {
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  border: 1px solid #dbdbdb;
+  background-color: #ffffff;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+.option-card:hover {
+  border-color: #af5655;
+  transform: scale(1.01);
+}
+
+.option-card.selected {
+  background-color: #af5655 !important;
+  border-color: #af5655 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(175, 86, 85, 0.35);
+}
+
+.option-card.selected p,
+.option-card.selected span {
+  color: #ffffff !important;
+}
