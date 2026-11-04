@@ -74,12 +74,24 @@ export default function App() {
   // Exit intent modal
   const [showExitModal, setShowExitModal] = useState<boolean>(false);
 
-  // Scroll to top whenever step changes
+  // Scroll to top and send Pixel events whenever step changes
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     document.documentElement.scrollTop = 0;
     document.body.scrollTop = 0;
     setSelectedInCurrentStep(null);
+
+    // Meta Pixel event tracking
+    if (typeof window !== 'undefined' && 'fbq' in window && typeof (window as any).fbq === 'function') {
+      const fbq = (window as any).fbq;
+      fbq('trackCustom', 'QuizStep', { step: currentStep });
+
+      if (currentStep === 12) {
+        fbq('track', 'ViewContent', { content_name: 'Quiz Resultados', content_category: 'Quiz' });
+      } else if (currentStep === 14) {
+        fbq('track', 'Lead', { content_name: 'Quiz Concluido' });
+      }
+    }
   }, [currentStep]);
 
   // Handle browser back button (popstate trap) & exit intent
@@ -267,6 +279,16 @@ export default function App() {
   };
 
   const checkoutUrl = getCheckoutUrl();
+
+  const handleCheckoutClick = () => {
+    if (typeof window !== 'undefined' && 'fbq' in window && typeof (window as any).fbq === 'function') {
+      (window as any).fbq('track', 'InitiateCheckout', {
+        content_name: 'Protocolo Xô Papada',
+        value: 29.90,
+        currency: 'BRL',
+      });
+    }
+  };
 
   // Progress percentage calculation
   const progressPercent = Math.min(
@@ -1362,6 +1384,7 @@ export default function App() {
                 <div className="btn-pulse-wave absolute inset-0 w-full h-full bg-[#17a34a] rounded-xl pointer-events-none" />
                 <a
                   href={checkoutUrl}
+                  onClick={handleCheckoutClick}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="btn-green-3d relative w-full py-4 px-6 text-white rounded-xl font-bold text-base flex items-center justify-center gap-2 cursor-pointer shadow-md no-underline"
@@ -1419,6 +1442,7 @@ export default function App() {
             <div className="pb-8">
               <a
                 href={checkoutUrl}
+                onClick={handleCheckoutClick}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-sm transition-colors"
