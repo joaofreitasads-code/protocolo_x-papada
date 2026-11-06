@@ -12,16 +12,24 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="referrer" content="no-referrer" />
 
+    <!-- Speed & Network Preconnects -->
+    <link rel="dns-prefetch" href="https://i.imgur.com" />
+    <link rel="preconnect" href="https://i.imgur.com" crossorigin />
+    <link rel="dns-prefetch" href="https://appdigitalhub.com.br" />
+    <link rel="preconnect" href="https://appdigitalhub.com.br" crossorigin />
+    <link rel="dns-prefetch" href="https://trackeamento-vip.vercel.app" />
+    <link rel="preconnect" href="https://trackeamento-vip.vercel.app" crossorigin />
+
     <!-- Google Fonts & Preconnect -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     
-    <!-- Preload core assets for instantaneous initial paint on mobile -->
+    <!-- Preload core above-the-fold assets for instantaneous initial paint on mobile -->
     <link rel="preload" as="image" href="/assets/new-logo-v2.webp" type="image/webp" fetchpriority="high" />
     <link rel="preload" as="image" href="/assets/headline-comparison.webp" type="image/webp" fetchpriority="high" />
 
-    <!-- Tracking Script -->
+    <!-- Tracking Script (async non-blocking) -->
     <script async src="https://trackeamento-vip.vercel.app/t.js" data-pixels="1867124711516258"></script>
   </head>
   <body class="bg-[#F9F9F9] min-h-screen text-[#1C1513] antialiased">

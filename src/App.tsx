@@ -10,6 +10,38 @@ interface UserAnswers {
   [step: number]: string | string[];
 }
 
+// Progressive asset preloading map: caches upcoming images in background during user idle
+const STEP_PRELOAD_MAP: Record<number, string[]> = {
+  1: [
+    '/assets/opt1-perfil.webp',
+    '/assets/opt2-perfil-v2.webp',
+    '/assets/o6kk9-ppd3.webp',
+    '/assets/Nar9b-ppd4.webp',
+  ],
+  2: [
+    '/assets/VKcx7-0.webp',
+    '/assets/IbC2R-1.webp',
+    '/assets/tVF5j-2.webp',
+    '/assets/r0QwL-3.webp',
+  ],
+  6: [
+    '/assets/metodo-aulas.webp',
+    '/assets/grafico-novo.webp',
+  ],
+  8: [
+    '/assets/new-img-1.webp',
+    '/assets/new-img-2.webp',
+    '/assets/new-img-3.webp',
+    '/assets/new-img-4.webp',
+  ],
+  10: [
+    '/assets/user-new-image.webp',
+    '/assets/depoimento-novo.webp',
+    '/assets/depoimento-2.webp',
+    '/assets/depoimento-3.webp',
+  ],
+};
+
 export default function App() {
   const [currentStep, setCurrentStep] = useState<number>(1);
   const totalSteps = 14;
@@ -185,6 +217,21 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [currentStep]);
 
+  // Intelligent progressive preloader: precaches next steps' images during user idle
+  useEffect(() => {
+    const urls = STEP_PRELOAD_MAP[currentStep];
+    if (urls && urls.length > 0) {
+      const timer = setTimeout(() => {
+        urls.forEach((url) => {
+          const img = new Image();
+          img.decoding = 'async';
+          img.src = url;
+        });
+      }, 80);
+      return () => clearTimeout(timer);
+    }
+  }, [currentStep]);
+
   // Smart progress calculation for VSL video
   const calculateSmartProgress = (time: number, totalDuration: number) => {
     if (time <= 0) return 0;
@@ -328,6 +375,8 @@ export default function App() {
                 alt="Tchau Papada"
                 width={204}
                 height={68}
+                decoding="async"
+                fetchPriority="high"
                 className="h-[60px] sm:h-[68px] w-auto object-contain cursor-pointer"
                 onClick={() => currentStep > 1 && currentStep < 14 && setCurrentStep(1)}
               />
@@ -375,6 +424,8 @@ export default function App() {
                 alt="Antes e Depois da Papada"
                 width={400}
                 height={400}
+                decoding="async"
+                fetchPriority="high"
                 className="w-full object-cover"
               />
             </div>
@@ -390,6 +441,10 @@ export default function App() {
                     }}
                     referrerPolicy="no-referrer"
                     alt="Aline Barros"
+                    width={40}
+                    height={40}
+                    loading="lazy"
+                    decoding="async"
                     className="w-10 h-10 rounded-full object-cover border border-gray-100 shadow-xs shrink-0"
                   />
                   <div>
@@ -449,27 +504,23 @@ export default function App() {
                   id: 'p1',
                   img: '/assets/opt1-perfil.webp',
                   fallbackImg: 'https://i.imgur.com/o1GzzsD.png',
-                  title: '1. É bem discreta',
-                  subtitle: 'Quase não aparece, mas eu percebo em alguns ângulos.',
+                  title: 'Quase não aparece',
                 },
                 {
                   id: 'p2',
                   img: '/assets/opt2-perfil-v2.webp',
                   fallbackImg: 'https://i.imgur.com/WwXoILu.png',
-                  title: '2. Aparece principalmente nas fotos',
-                  subtitle: 'Percebo mais quando estou de lado ou tiro uma selfie.',
+                  title: 'Aparece nas fotos',
                 },
                 {
                   id: 'p3',
                   img: '/assets/o6kk9-ppd3.webp',
-                  title: '3. É bastante perceptível',
-                  subtitle: 'Consigo notar até mesmo olhando de frente ou em vídeos.',
+                  title: 'É bem visível',
                 },
                 {
                   id: 'p4',
                   img: '/assets/Nar9b-ppd4.webp',
-                  title: '4. É bem acentuada',
-                  subtitle: 'Me incomoda bastante e já tentei algumas coisas para melhorar.',
+                  title: 'É muito acentuada',
                 },
               ].map((opt) => (
                 <div
@@ -489,21 +540,15 @@ export default function App() {
                         }
                       }}
                       alt={opt.title}
+                      width={64}
+                      height={64}
+                      decoding="async"
                       className="w-full h-full object-cover rounded-xl"
                     />
                   </div>
                   <div className="px-3 flex-1 text-left">
-                    <p className="font-medium text-sm text-[#1C1513] leading-snug">
-                      {opt.subtitle ? (
-                        <>
-                          <span className="font-bold block text-sm">{opt.title}</span>
-                          <span className="text-xs text-gray-500 font-normal block mt-0.5">
-                            {opt.subtitle}
-                          </span>
-                        </>
-                      ) : (
-                        opt.title
-                      )}
+                    <p className="font-semibold text-sm sm:text-base text-[#1C1513] leading-snug">
+                      {opt.title}
                     </p>
                   </div>
                 </div>
@@ -530,19 +575,19 @@ export default function App() {
               {[
                 {
                   emoji: '😩',
-                  text: 'Sim! Já emagreci, mas minha papada continuou lá.',
+                  text: 'Sim, mesmo emagrecendo',
                 },
                 {
                   emoji: '😕',
-                  text: 'Sou magra, mas minha papada sempre me incomodou.',
+                  text: 'Sou magra e tenho papada',
                 },
                 {
                   emoji: '🧬',
-                  text: 'Nunca emagreci por esse motivo, mas acho que é genética.',
+                  text: 'Acho que é genética',
                 },
                 {
                   emoji: '🤔',
-                  text: 'Ainda não sei se meu peso influencia minha papada.',
+                  text: 'Não sei dizer',
                 },
               ].map((opt, idx) => (
                 <div
@@ -578,19 +623,19 @@ export default function App() {
               {[
                 {
                   emoji: '📸',
-                  text: 'Me sentir mais bonita nas fotos, sem precisar esconder meu rosto.',
+                  text: 'Ficar melhor nas fotos',
                 },
                 {
                   emoji: '✨',
-                  text: 'Ter um contorno facial mais definido e harmonioso.',
+                  text: 'Definir o contorno do rosto',
                 },
                 {
                   emoji: '🌷',
-                  text: 'Cuidar da aparência da minha papada sem procedimentos invasivos.',
+                  text: 'Reduzir a aparência da papada',
                 },
                 {
                   emoji: '💗',
-                  text: 'Me olhar no espelho e me sentir mais confiante comigo mesma.',
+                  text: 'Me sentir mais confiante',
                 },
               ].map((opt, idx) => (
                 <div
@@ -637,6 +682,9 @@ export default function App() {
                   <img
                     src={opt.img}
                     alt={opt.label}
+                    width={160}
+                    height={160}
+                    decoding="async"
                     className="w-full h-full object-contain pointer-events-none"
                   />
                 </div>
@@ -652,7 +700,7 @@ export default function App() {
           <div className="animate-fade-in-step flex flex-col gap-5">
             <div className="text-center">
               <h2 className="text-2xl font-bold text-[#1C1513] leading-tight">
-                Como você costuma dormir durante a noite?
+                Como você costuma dormir?
               </h2>
               <p className="text-xs text-gray-500 mt-2">
                 Queremos conhecer melhor sua rotina de descanso.
@@ -663,19 +711,19 @@ export default function App() {
               {[
                 {
                   emoji: '🌙',
-                  text: 'Durmo muito bem, acordo descansada e cheia de energia.',
+                  text: 'Durmo muito bem',
                 },
                 {
                   emoji: '😌',
-                  text: 'Durmo bem, mas às vezes acordo com sensação de cansaço.',
+                  text: 'Durmo bem, mas acordo cansada',
                 },
                 {
-                  emoji: '😕',
-                  text: 'Tenho dificuldade para dormir ou acordo várias vezes durante a noite.',
+                  emoji: '😟',
+                  text: 'Tenho dificuldade para dormir',
                 },
                 {
                   emoji: '😴',
-                  text: 'Durmo poucas horas e quase sempre acordo cansada.',
+                  text: 'Durmo pouco e acordo cansada',
                 },
               ].map((opt, idx) => (
                 <div
@@ -700,23 +748,23 @@ export default function App() {
           <div className="animate-fade-in-step flex flex-col gap-5">
             <div className="text-center">
               <h2 className="text-2xl font-bold text-[#1C1513] leading-tight">
-                Você percebe algum desses hábitos ou sinais no seu dia a dia?
+                Você tem algum desses hábitos?
               </h2>
               <p className="text-xs text-gray-500 mt-2">
-                Selecione todas as opções que combinam com você.
+                Selecione quantos quiser.
               </p>
             </div>
 
             <div className="flex flex-col gap-2.5">
               {[
-                { id: 'ronco', emoji: '😴', text: 'Costumo roncar enquanto durmo.' },
-                { id: 'boca', emoji: '👄', text: 'Tenho o hábito de respirar pela boca.' },
+                { id: 'ronco', emoji: '😴', text: 'Ronco ao dormir' },
+                { id: 'boca', emoji: '👄', text: 'Respiro pela boca' },
                 {
                   id: 'mandibula',
                   emoji: '😬',
-                  text: 'Aperto os dentes ou tensiono a mandíbula sem perceber.',
+                  text: 'Aperto os dentes',
                 },
-                { id: 'inchado', emoji: '💧', text: 'Às vezes acordo com o rosto inchado.' },
+                { id: 'inchado', emoji: '💧', text: 'Acordo com o rosto inchado' },
               ].map((opt) => {
                 const isChecked = multiSelected.includes(opt.id);
                 return (
@@ -744,7 +792,7 @@ export default function App() {
                 );
               })}
 
-              {/* Nenhuma das alternativas */}
+              {/* Nenhum desses */}
               {(() => {
                 const isNoneChecked = multiSelected.includes('nenhuma');
                 return (
@@ -756,7 +804,7 @@ export default function App() {
                   >
                     <div className="flex items-center gap-3">
                       <span className="text-xl">🚫</span>
-                      <p className="font-medium text-sm text-[#1C1513]">Nenhuma das alternativas.</p>
+                      <p className="font-medium text-sm text-[#1C1513]">Nenhum desses</p>
                     </div>
                     <div
                       className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${
@@ -831,7 +879,7 @@ export default function App() {
           <div className="animate-fade-in-step flex flex-col gap-5">
             <div className="text-center">
               <h2 className="text-2xl font-bold text-[#1C1513] leading-tight">
-                O que mais te incomoda na região abaixo do queixo?
+                O que mais te incomoda na papada?
               </h2>
               <p className="text-xs text-gray-500 mt-2">
                 Selecione a opção que melhor descreve o que você percebe.
@@ -842,19 +890,19 @@ export default function App() {
               {[
                 {
                   emoji: '💗',
-                  text: 'Uma gordurinha localizada que deixa a região mais volumosa.',
+                  text: 'Gordura abaixo do queixo',
                 },
                 {
                   emoji: '🌸',
-                  text: 'A pele parece mais flácida, principalmente quando movimento o pescoço.',
+                  text: 'Flacidez na pele',
                 },
                 {
                   emoji: '✨',
-                  text: 'Percebo tanto volume quanto flacidez abaixo do queixo.',
+                  text: 'Gordura e flacidez',
                 },
                 {
                   emoji: '🪞',
-                  text: 'Uma dobrinha bem marcada que aparece principalmente de perfil.',
+                  text: 'Dobrinhas no pescoço',
                 },
               ].map((opt, idx) => (
                 <div
@@ -889,12 +937,13 @@ export default function App() {
             {/* Metodo Image */}
             <div className="w-full rounded-2xl overflow-hidden bg-white border border-gray-100 shadow-sm p-1">
               <img
-                src="/assets/metodo-new.webp"
+                src="/assets/metodo-aulas.webp"
                 onError={(e) => {
-                  e.currentTarget.src = 'https://i.imgur.com/LvuwBXv.png';
+                  e.currentTarget.src = 'https://i.imgur.com/VlqdaUy.png';
                 }}
                 referrerPolicy="no-referrer"
-                alt="Método de cuidado facial"
+                alt="Por dentro do Método Xô Papada"
+                decoding="async"
                 className="w-full object-cover rounded-xl"
               />
             </div>
@@ -908,6 +957,7 @@ export default function App() {
                 }}
                 referrerPolicy="no-referrer"
                 alt="Evolução do Contorno do Pescoço em 15 Dias"
+                decoding="async"
                 className="w-full object-cover rounded-xl"
               />
             </div>
@@ -988,6 +1038,7 @@ export default function App() {
                   }}
                   referrerPolicy="no-referrer"
                   alt={`Resultado ${carouselIndex + 1}`}
+                  decoding="async"
                   className="w-full h-full object-cover transition-opacity duration-300"
                 />
               </div>
@@ -1023,6 +1074,7 @@ export default function App() {
                 }}
                 referrerPolicy="no-referrer"
                 alt="Raio-X Anatômico Muscular"
+                decoding="async"
                 className="w-full object-cover rounded-xl"
               />
             </div>
@@ -1219,6 +1271,7 @@ export default function App() {
                   }}
                   referrerPolicy="no-referrer"
                   alt={`Depoimento ${depoimentosResults[depoimentoIndex].name}`}
+                  decoding="async"
                   className="w-full object-cover rounded-xl transition-all duration-300"
                 />
 
