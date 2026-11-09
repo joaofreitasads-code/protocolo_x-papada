@@ -20,14 +20,16 @@
     <link rel="dns-prefetch" href="https://trackeamento-vip.vercel.app" />
     <link rel="preconnect" href="https://trackeamento-vip.vercel.app" crossorigin />
 
-    <!-- Google Fonts & Preconnect -->
+    <!-- Google Fonts & Preconnect (Async Non-Blocking) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" /></noscript>
     
     <!-- Preload core above-the-fold assets for instantaneous initial paint on mobile -->
     <link rel="preload" as="image" href="/assets/new-logo-v2.webp" type="image/webp" fetchpriority="high" />
-    <link rel="preload" as="image" href="/assets/headline-comparison.webp" type="image/webp" fetchpriority="high" />
+    <link rel="preload" as="image" href="/assets/step1-comparison.webp" type="image/webp" fetchpriority="high" />
 
     <!-- Tracking Script (async non-blocking) -->
     <script async src="https://trackeamento-vip.vercel.app/t.js" data-pixels="1867124711516258"></script>

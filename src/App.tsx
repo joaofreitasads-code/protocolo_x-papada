@@ -4,7 +4,15 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Check, Star, ShieldCheck, HelpCircle } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Check,
+  Star,
+  ShieldCheck,
+  Lock,
+  Clock,
+} from 'lucide-react';
 
 interface UserAnswers {
   [step: number]: string | string[];
@@ -25,7 +33,7 @@ const STEP_PRELOAD_MAP: Record<number, string[]> = {
     '/assets/r0QwL-3.webp',
   ],
   6: [
-    '/assets/metodo-aulas.webp',
+    '/assets/metodo-aulas-v3.webp',
     '/assets/grafico-novo.webp',
   ],
   8: [
@@ -97,159 +105,119 @@ export default function App() {
   // Step 13 verification progress
   const [verifyProgress, setVerifyProgress] = useState<number>(0);
 
-  // Step 14 VSL and CTA button reveal delay
-  const [ctaRevealed, setCtaRevealed] = useState<boolean>(false);
+  // Step 14 VSL and CTA button state (delayed 1m30s / 90s)
   const [vslProgress, setVslProgress] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [showVslCta, setShowVslCta] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('show_button') === 'true' || params.get('btn') === '1') {
+        return true;
+      }
+    }
+    return false;
+  });
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const lastProgressRef = useRef<number>(0);
 
   // Exit intent modal
   const [showExitModal, setShowExitModal] = useState<boolean>(false);
 
-  // Scroll to top and send Pixel events whenever step changes
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    document.documentElement.scrollTop = 0;
-    document.body.scrollTop = 0;
-    setSelectedInCurrentStep(null);
-
-    // Meta Pixel event tracking
-    if (typeof window !== 'undefined' && 'fbq' in window && typeof (window as any).fbq === 'function') {
-      const fbq = (window as any).fbq;
-      fbq('trackCustom', 'QuizStep', { step: currentStep });
-
-      if (currentStep === 12) {
-        fbq('track', 'ViewContent', { content_name: 'Quiz Resultados', content_category: 'Quiz' });
-      } else if (currentStep === 14) {
-        fbq('track', 'Lead', { content_name: 'Quiz Concluido' });
-      }
-    }
-  }, [currentStep]);
-
-  // Handle browser back button (popstate trap) & exit intent
-  useEffect(() => {
-    try {
-      window.history.pushState({ trap: 1 }, '', window.location.href);
-      window.history.pushState({ trap: 2 }, '', window.location.href);
-    } catch {}
-
-    const handlePopState = () => {
-      try {
-        window.history.pushState({ trap: 2 }, '', window.location.href);
-      } catch {}
-
-      if (currentStep < 14) {
-        setShowExitModal(true);
-      }
-    };
-
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, [currentStep]);
-
-  // Step 11 Circular Loading & Carousel Timer (7 seconds)
+  // Step 11: Loading animation and carousel
   useEffect(() => {
     if (currentStep !== 11) return;
 
     setStep11Percent(0);
-    setCarouselIndex(0);
-
-    const totalDuration = 7000;
-    const intervalTime = 50;
-    const stepIncrement = 100 / (totalDuration / intervalTime);
-
-    const timer = setInterval(() => {
+    const interval = setInterval(() => {
       setStep11Percent((prev) => {
-        const next = prev + stepIncrement;
-        if (next >= 100) {
-          clearInterval(timer);
-          setTimeout(() => {
-            setCurrentStep(12);
-          }, 350);
+        if (prev >= 100) {
+          clearInterval(interval);
+          setTimeout(() => setCurrentStep(12), 400);
           return 100;
         }
-
-        // Change carousel image at 25%, 50%, and 75%
-        if (next >= 75) {
-          setCarouselIndex(3);
-        } else if (next >= 50) {
-          setCarouselIndex(2);
-        } else if (next >= 25) {
-          setCarouselIndex(1);
-        } else {
-          setCarouselIndex(0);
-        }
-
-        return next;
+        return prev + 1;
       });
-    }, intervalTime);
+    }, 45);
 
-    return () => clearInterval(timer);
-  }, [currentStep]);
+    const carouselTimer = setInterval(() => {
+      setCarouselIndex((prev) => (prev + 1) % carouselImages.length);
+    }, 2800);
 
-  // Step 13 Verification Progress (5 seconds)
+    return () => {
+      clearInterval(interval);
+      clearInterval(carouselTimer);
+    };
+  }, [currentStep, carouselImages.length]);
+
+  // Step 13: Verification progress bar
   useEffect(() => {
     if (currentStep !== 13) return;
 
     setVerifyProgress(0);
-    const startTimeout = setTimeout(() => {
-      setVerifyProgress(100);
-    }, 50);
+    const interval = setInterval(() => {
+      setVerifyProgress((prev) => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          setTimeout(() => setCurrentStep(14), 500);
+          return 100;
+        }
+        return prev + 2;
+      });
+    }, 40);
 
-    const finishTimeout = setTimeout(() => {
-      setCurrentStep(14);
-    }, 5100);
-
-    return () => {
-      clearTimeout(startTimeout);
-      clearTimeout(finishTimeout);
-    };
+    return () => clearInterval(interval);
   }, [currentStep]);
 
-  // Step 14 CTA button delayed reveal (8 seconds)
-  useEffect(() => {
-    if (currentStep !== 14) return;
-
-    const timer = setTimeout(() => {
-      setCtaRevealed(true);
-    }, 8000);
-
-    return () => clearTimeout(timer);
-  }, [currentStep]);
-
-  // Intelligent progressive preloader: precaches next steps' images during user idle
+  // Preload upcoming images in browser idle periods without thread blocking
   useEffect(() => {
     const urls = STEP_PRELOAD_MAP[currentStep];
     if (urls && urls.length > 0) {
-      const timer = setTimeout(() => {
+      const idleFallback = setTimeout(() => {
         urls.forEach((url) => {
           const img = new Image();
           img.decoding = 'async';
           img.src = url;
         });
-      }, 80);
-      return () => clearTimeout(timer);
+      }, 50);
+      return () => clearTimeout(idleFallback);
     }
   }, [currentStep]);
 
-  // Smart progress calculation for VSL video
+  // Checkout URL construction preserving UTM parameters
+  const getCheckoutUrl = () => {
+    const base = 'https://appdigitalhub.com.br/c/5955893C';
+    if (typeof window !== 'undefined' && window.location.search) {
+      const search = window.location.search;
+      return base.includes('?') ? `${base}&${search.slice(1)}` : `${base}${search}`;
+    }
+    return base;
+  };
+
+  const checkoutUrl = getCheckoutUrl();
+
+  const handleCheckoutClick = () => {
+    if (typeof window !== 'undefined' && 'fbq' in window && typeof (window as any).fbq === 'function') {
+      (window as any).fbq('track', 'InitiateCheckout', {
+        content_name: 'Protocolo Xô Papada',
+        value: 29.90,
+        currency: 'BRL',
+      });
+    }
+  };
+
+  // Video progress calculation
   const calculateSmartProgress = (time: number, totalDuration: number) => {
     if (time <= 0) return 0;
     if (time >= totalDuration) return 100;
     const lastMinStart = Math.max(totalDuration - 60.0, 45.0);
 
-    // Phase 1: First 45s advances rapidly
     if (time < 45.0) {
       const ratio = time / 45.0;
       return 58.0 * (1.0 - Math.pow(1.0 - ratio, 1.4));
-    }
-    // Phase 2: Middle advances steadily
-    else if (time < lastMinStart) {
+    } else if (time < lastMinStart) {
       const ratio = (time - 45.0) / (lastMinStart - 45.0);
       return 58.0 + (89.0 - 58.0) * ratio;
-    }
-    // Phase 3: Last minute advances slower
-    else {
+    } else {
       const ratio = (time - lastMinStart) / (totalDuration - lastMinStart);
       return 89.0 + (99.5 - 89.0) * Math.pow(ratio, 0.75);
     }
@@ -259,7 +227,14 @@ export default function App() {
     const video = e.currentTarget;
     if (video.duration) {
       const pct = calculateSmartProgress(video.currentTime, video.duration);
-      setVslProgress(pct);
+      if (Math.abs(pct - lastProgressRef.current) >= 0.5 || pct >= 99) {
+        lastProgressRef.current = pct;
+        setVslProgress(pct);
+      }
+    }
+    // Delay: Só aparece após 1 minuto e meio (90 segundos) de vídeo
+    if (!showVslCta && video.currentTime >= 90) {
+      setShowVslCta(true);
     }
   };
 
@@ -312,29 +287,9 @@ export default function App() {
   };
 
   const handleMultiSubmit = () => {
+    if (multiSelected.length === 0) return;
     setUserAnswers((prev) => ({ ...prev, 7: multiSelected }));
     goToNextStep();
-  };
-
-  const getCheckoutUrl = () => {
-    const base = 'https://appdigitalhub.com.br/c/5955893C';
-    if (typeof window !== 'undefined' && window.location.search) {
-      const search = window.location.search;
-      return base.includes('?') ? `${base}&${search.slice(1)}` : `${base}${search}`;
-    }
-    return base;
-  };
-
-  const checkoutUrl = getCheckoutUrl();
-
-  const handleCheckoutClick = () => {
-    if (typeof window !== 'undefined' && 'fbq' in window && typeof (window as any).fbq === 'function') {
-      (window as any).fbq('track', 'InitiateCheckout', {
-        content_name: 'Protocolo Xô Papada',
-        value: 29.90,
-        currency: 'BRL',
-      });
-    }
   };
 
   // Progress percentage calculation
@@ -344,7 +299,7 @@ export default function App() {
   );
 
   return (
-    <div className="bg-[#F9F9F9] min-h-screen text-[#1C1513] flex flex-col font-sans">
+    <div className="bg-[#F9F9F9] min-h-screen text-[#1C1513] flex flex-col font-sans antialiased">
       {/* Top Header & Progress */}
       <header className="sticky top-0 z-50 bg-[#F9F9F9]/95 backdrop-blur-md border-b border-gray-100 px-4 py-3 transition-all duration-300">
         <div className="max-w-[28rem] mx-auto flex flex-col gap-3">
@@ -407,23 +362,23 @@ export default function App() {
           <div className="animate-fade-in-step flex flex-col gap-5 text-center">
             {/* Headline */}
             <h1 className="text-2xl sm:text-[26px] font-extrabold leading-tight text-[#1C1513]">
-              Descubra como melhorar a aparência da sua papada{' '}
+              Sua papada te incomoda?{' '}
               <span className="text-[#AF5655]">
-                com uma rotina simples de apenas 15 dias
+                Descubra uma rotina de 15 dias para cuidar do contorno do seu rosto!
               </span>
             </h1>
 
             {/* Comparison Image */}
             <div className="w-full rounded-2xl overflow-hidden shadow-sm bg-white border border-gray-100">
               <img
-                src="/assets/headline-comparison.webp"
+                src="/assets/step1-comparison.webp"
                 onError={(e) => {
-                  e.currentTarget.src = 'https://i.imgur.com/CVGefct.png';
+                  e.currentTarget.src = 'https://i.imgur.com/P2oM7TS.png';
                 }}
                 referrerPolicy="no-referrer"
                 alt="Antes e Depois da Papada"
                 width={400}
-                height={400}
+                height={710}
                 decoding="async"
                 fetchPriority="high"
                 className="w-full object-cover"
@@ -465,7 +420,6 @@ export default function App() {
                 &ldquo;Eu já tinha tentado de tudo para diminuir minha papada, até emagrecer, mas nada parecia mudar. Finalmente encontrei uma rotina que fez sentido para mim e me ajudou a cuidar melhor dessa região!&rdquo;
               </p>
             </div>
-
 
             {/* Action Button */}
             <div className="pt-2 pb-6">
@@ -837,17 +791,14 @@ export default function App() {
         )}
 
         {/* ========================================== */}
-        {/* STEP 8: Horário disponível                 */}
+        {/* STEP 8: Momento do dia                     */}
         {/* ========================================== */}
         {currentStep === 8 && (
           <div className="animate-fade-in-step flex flex-col gap-5">
             <div className="text-center">
               <h2 className="text-2xl font-bold text-[#1C1513] leading-tight">
-                Qual seria o melhor momento do dia para cuidar de você?
+                Em qual momento do dia você prefere praticar seus cuidados?
               </h2>
-              <p className="text-xs text-gray-500 mt-2">
-                Vamos adaptar sua rotina de cuidados ao seu dia a dia.
-              </p>
             </div>
 
             <div className="flex flex-col gap-2.5">
@@ -873,7 +824,7 @@ export default function App() {
         )}
 
         {/* ========================================== */}
-        {/* STEP 9: Como descreveria ao toque?         */}
+        {/* STEP 9: O que mais te incomoda             */}
         {/* ========================================== */}
         {currentStep === 9 && (
           <div className="animate-fade-in-step flex flex-col gap-5">
@@ -937,12 +888,14 @@ export default function App() {
             {/* Metodo Image */}
             <div className="w-full rounded-2xl overflow-hidden bg-white border border-gray-100 shadow-sm p-1">
               <img
-                src="/assets/metodo-aulas.webp"
+                src="/assets/metodo-aulas-v3.webp?v=3"
                 onError={(e) => {
-                  e.currentTarget.src = 'https://i.imgur.com/VlqdaUy.png';
+                  e.currentTarget.src = 'https://i.imgur.com/7BbXLOl.png';
                 }}
                 referrerPolicy="no-referrer"
                 alt="Por dentro do Método Xô Papada"
+                width={1254}
+                height={1254}
                 decoding="async"
                 className="w-full object-cover rounded-xl"
               />
@@ -980,7 +933,7 @@ export default function App() {
         )}
 
         {/* ========================================== */}
-        {/* STEP 11: Criando seu Plano (Loading + Carrossel) */}
+        {/* STEP 11: Criando seu Plano (Loading)       */}
         {/* ========================================== */}
         {currentStep === 11 && (
           <div className="animate-fade-in-step flex flex-col gap-6 text-center py-6">
@@ -1016,7 +969,7 @@ export default function App() {
                     stroke="#AF5655"
                     strokeWidth="8"
                     strokeDasharray="289"
-                    strokeDashoffset={289 - (289 * (step11Percent / 100))}
+                    strokeDashoffset={289 - (289 * step11Percent) / 100}
                     strokeLinecap="round"
                     fill="transparent"
                     className="transition-all duration-300"
@@ -1114,74 +1067,39 @@ export default function App() {
                   <circle
                     cx="50"
                     cy="50"
-                    r="38"
-                    stroke="#71717A"
-                    strokeWidth="14"
+                    r="40"
+                    stroke="#F1E5E4"
+                    strokeWidth="12"
                     fill="transparent"
-                    strokeDasharray="238.7"
-                    strokeDashoffset="0"
                   />
                   <circle
                     cx="50"
                     cy="50"
-                    r="38"
+                    r="40"
                     stroke="#AF5655"
-                    strokeWidth="14"
-                    fill="transparent"
-                    strokeDasharray="238.7"
-                    strokeDashoffset="83.5"
+                    strokeWidth="12"
+                    strokeDasharray={`${65 * 2.513} ${100 * 2.513}`}
                     strokeLinecap="round"
+                    fill="transparent"
                   />
                 </svg>
                 <div className="absolute flex flex-col items-center">
-                  <span className="text-2xl font-black text-[#AF5655]">65%</span>
-                  <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">
-                    Muscular
-                  </span>
+                  <span className="text-3xl font-black text-[#AF5655] leading-none">65%</span>
+                  <span className="text-xs text-gray-500 font-bold uppercase mt-1">Muscular</span>
                 </div>
               </div>
 
-              <div className="flex items-center justify-center gap-6 mt-4 text-xs font-semibold">
-                <span className="flex items-center gap-1.5 text-[#AF5655]">
-                  <span className="w-3 h-3 rounded-full bg-[#AF5655]" /> Tensão Muscular (65%)
-                </span>
-                <span className="flex items-center gap-1.5 text-gray-600">
-                  <span className="w-3 h-3 rounded-full bg-[#71717A]" /> Gordura (35%)
-                </span>
+              {/* Legend */}
+              <div className="flex justify-center gap-6 text-xs mt-4">
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-[#AF5655]" />
+                  <span className="font-medium text-gray-700">Tensão / Postura (65%)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-[#F1E5E4]" />
+                  <span className="font-medium text-gray-700">Gordura (35%)</span>
+                </div>
               </div>
-            </div>
-
-            {/* Agora entendemos melhor o que te incomoda na região da papada! */}
-            <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm text-left flex flex-col gap-2">
-              <h2 className="text-xl font-extrabold text-[#AF5655] leading-tight">
-                Agora entendemos melhor o que te incomoda na região da papada!
-              </h2>
-              <p className="text-xs sm:text-sm text-gray-600 leading-relaxed">
-                Com base nas suas respostas, identificamos suas principais preocupações e preparamos uma sugestão de cuidados para o seu perfil.
-              </p>
-            </div>
-
-            {/* O que pode influenciar sua papada? */}
-            <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm text-left flex flex-col gap-2">
-              <h3 className="text-base font-bold text-[#1C1513]">
-                O que pode influenciar sua papada?
-              </h3>
-              <p className="text-xs sm:text-sm text-gray-600 leading-relaxed">
-                A aparência abaixo do queixo pode estar relacionada ao acúmulo de gordura, à flacidez da pele, à genética e às características naturais do rosto.
-              </p>
-              <p className="text-xs sm:text-sm text-gray-500 leading-relaxed italic">
-                Entender esses fatores é o primeiro passo para escolher como cuidar dessa região.
-              </p>
-            </div>
-
-            {/* 🧬 Será que é genética? */}
-            <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm text-left flex flex-col gap-2">
-              <h3 className="text-base font-bold text-[#AF5655] flex items-center gap-2">
-                <span>🧬</span> Será que é genética?
-              </h3>
-              <p className="text-xs sm:text-sm text-gray-600 leading-relaxed">
-                A genética pode influenciar o formato do queixo e o acúmulo de gordura nessa região, mas não é o único fator. A elasticidade da pele e a anatomia facial também fazem diferença.
-              </p>
             </div>
 
             {/* 🔎 O que identificamos nas suas respostas */}
@@ -1233,14 +1151,6 @@ export default function App() {
                   </p>
                   <p className="text-emerald-800 text-xs mt-0.5 pl-4">
                     Um momento dedicado ao autocuidado da região do rosto e pescoço.
-                  </p>
-                </div>
-                <div>
-                  <p className="font-bold text-emerald-900 flex items-center gap-1.5">
-                    <span>✓</span> Orientações fáceis de seguir
-                  </p>
-                  <p className="text-emerald-800 text-xs mt-0.5 pl-4">
-                    Conteúdo pensado para facilitar o entendimento e a prática.
                   </p>
                 </div>
               </div>
@@ -1322,7 +1232,6 @@ export default function App() {
               </div>
             </div>
 
-
             {/* Closing pitch */}
             <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm text-center">
               <h2 className="text-xl font-extrabold text-[#AF5655] leading-tight">
@@ -1334,7 +1243,7 @@ export default function App() {
             </div>
 
             {/* Button CTA 2 */}
-            <div className="pb-6">
+            <div className="pt-2 pb-6">
               <div className="relative w-full max-w-[28rem] mx-auto">
                 <div className="btn-pulse-wave absolute inset-0 w-full h-full bg-[#17a34a] rounded-xl pointer-events-none" />
                 <button
@@ -1342,35 +1251,31 @@ export default function App() {
                   type="button"
                   className="btn-green-3d relative w-full py-4 px-6 text-white rounded-xl font-bold text-base flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                 >
-                  <span>Desbloquear meu protocolo</span>
+                  <span>Quero Acessar o Protocolo</span>
                   <ChevronRight className="w-4 h-4 stroke-[3]" />
                 </button>
               </div>
-              <p className="text-xs text-gray-500 mt-2 font-medium">
-                Seu Protocolo Adeus Papada de 15 dias, acesso imediato.
-              </p>
             </div>
           </div>
         )}
 
         {/* ========================================== */}
-        {/* STEP 13: Verificando Vagas (Loading 5s)    */}
+        {/* STEP 13: Verificando disponibilidade       */}
         {/* ========================================== */}
         {currentStep === 13 && (
-          <div className="animate-fade-in-step flex flex-col items-center justify-center text-center py-16 gap-6">
-            <span className="text-4xl animate-bounce">⏳</span>
-
+          <div className="animate-fade-in-step flex flex-col gap-6 text-center py-10">
             <div>
-              <h3 className="text-xl font-bold text-[#AF5655] leading-tight">
-                Verificando se ainda temos vagas disponíveis...
-              </h3>
-              <p className="text-xs text-gray-400 mt-2">Aguarde alguns segundos...</p>
+              <h2 className="text-2xl font-bold text-[#AF5655] leading-tight">
+                Verificando disponibilidade do protocolo...
+              </h2>
+              <p className="text-sm text-gray-600 mt-2">
+                Estamos finalizando os detalhes do seu plano exclusivo.
+              </p>
             </div>
 
-            {/* Smooth 5s progress bar */}
-            <div className="w-full max-w-xs bg-gray-200 h-2.5 rounded-full overflow-hidden relative">
+            <div className="w-full bg-gray-100 h-3 rounded-full overflow-hidden">
               <div
-                className="h-full bg-[#AF5655] rounded-full transition-all duration-[5000ms] ease-linear"
+                className="h-full bg-[#AF5655] transition-all duration-300 rounded-full"
                 style={{ width: `${verifyProgress}%` }}
               />
             </div>
@@ -1378,11 +1283,10 @@ export default function App() {
         )}
 
         {/* ========================================== */}
-        {/* STEP 14: VSL & Oferta Final                */}
+        {/* STEP 14: Oferta Final / VSL                */}
         {/* ========================================== */}
         {currentStep === 14 && (
-          <div className="animate-fade-in-step flex flex-col gap-5 text-center">
-            {/* VSL Headline */}
+          <div className="animate-fade-in-step flex flex-col gap-6 text-center">
             <div>
               <h2 className="text-2xl sm:text-[26px] font-extrabold text-[#1C1513] leading-tight">
                 Você está a apenas{' '}
@@ -1394,22 +1298,25 @@ export default function App() {
               </p>
             </div>
 
-            {/* Video Player (MP4 Video Stream + Barra de Reprodução Inteligente) */}
+            {/* Video Player (MP4 Video Stream) */}
             <div className="w-full bg-black rounded-2xl overflow-hidden shadow-lg border border-gray-200">
               <div className="relative w-full aspect-[9/16] bg-black flex items-center justify-center">
                 <video
                   ref={videoRef}
-                  src="https://i.imgur.com/YKsJGFX.mp4"
-                  preload="metadata"
+                  src="https://i.imgur.com/RvFjxh8.mp4"
+                  preload="auto"
                   playsInline
                   controls
                   className="w-full h-full object-cover"
                   onTimeUpdate={handleTimeUpdate}
                   onPlay={() => setIsPlaying(true)}
                   onPause={() => setIsPlaying(false)}
-                  onEnded={() => setVslProgress(100)}
+                  onEnded={() => {
+                    setVslProgress(100);
+                    setShowVslCta(true);
+                  }}
                 >
-                  <source src="https://i.imgur.com/YKsJGFX.mp4" type="video/mp4" />
+                  <source src="https://i.imgur.com/RvFjxh8.mp4" type="video/mp4" />
                   Seu navegador não suporta a reprodução deste vídeo.
                 </video>
               </div>
@@ -1425,85 +1332,102 @@ export default function App() {
               </div>
             </div>
 
-            {/* Final CTA Button (Green 3D with pulse wave & 8s delay) */}
-            <div
-              className={`pt-2 pb-4 transition-all duration-700 ${
-                ctaRevealed
-                  ? 'opacity-100 pointer-events-auto'
-                  : 'opacity-0 pointer-events-none'
-              }`}
-            >
-              <div className="relative w-full max-w-[28rem] mx-auto">
-                <div className="btn-pulse-wave absolute inset-0 w-full h-full bg-[#17a34a] rounded-xl pointer-events-none" />
-                <a
-                  href={checkoutUrl}
-                  onClick={handleCheckoutClick}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn-green-3d relative w-full py-4 px-6 text-white rounded-xl font-bold text-base flex items-center justify-center gap-2 cursor-pointer shadow-md no-underline"
-                >
-                  <span>Sim, quero começar meu protocolo</span>
-                  <ChevronRight className="w-4 h-4 stroke-[3]" />
-                </a>
-              </div>
-              <p className="text-xs text-gray-600 mt-2 font-medium">
-                <strong>Condição especial exclusiva para você!</strong> Desbloqueie agora seu acesso ao Xô Papada com uma oferta especial.
-              </p>
-            </div>
+            {/* Elementos da Oferta Liberados Após 1 Minuto e Meio (90s) de Vídeo */}
+            {showVslCta && (
+              <div className="animate-fade-in-step flex flex-col gap-6 w-full">
+                {/* Botão Principal Verde 3D */}
+                <div className="relative w-full">
+                  <div className="btn-pulse-wave absolute inset-0 w-full h-full bg-[#17a34a] rounded-xl pointer-events-none" />
+                  <a
+                    href={checkoutUrl}
+                    onClick={handleCheckoutClick}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-green-3d relative w-full py-4 px-6 text-white rounded-xl font-extrabold text-base flex items-center justify-center gap-2 cursor-pointer shadow-lg tracking-wide uppercase"
+                  >
+                    <span>QUERO MEU PROTOCOLO XÔ PAPADA</span>
+                    <ChevronRight className="w-5 h-5 stroke-[3]" />
+                  </a>
+                </div>
 
-            {/* Included Bonus Cards & Guarantee Details */}
-            <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm text-left flex flex-col gap-3">
-              <h3 className="font-bold text-sm text-[#AF5655] uppercase tracking-wide">
-                O que está incluso no seu protocolo:
-              </h3>
-              <div className="space-y-2.5 text-xs text-gray-700">
-                <div className="flex items-start gap-2">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <span><strong>Protocolo Completo Tchau Papada:</strong> Exercícios de 5 a 10 min por dia adaptados ao seu caso.</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <span><strong>Bônus 1:</strong> Hábitos diários que pioram sua papada sem perceber.</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <span><strong>Bônus 2:</strong> Os 3 alimentos que incham seu rosto sem subir de peso.</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <span><strong>Bônus 3:</strong> A postura ao dormir e como corrigir em menos de 1 min.</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <span><strong>Bônus 4:</strong> Acesso exclusivo à comunidade e suporte tira-dúvidas.</span>
-                </div>
-              </div>
-
-              {/* 30-Day Guarantee Box */}
-              <div className="bg-amber-50/70 border border-amber-200/80 rounded-xl p-3 flex items-start gap-2.5 mt-2">
-                <ShieldCheck className="w-6 h-6 text-amber-700 shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="text-xs font-bold text-amber-900">Garantia Incondicional de 30 Dias</h4>
-                  <p className="text-[11px] text-amber-800 leading-relaxed mt-0.5">
-                    15 dias para fazer o protocolo e mais 15 dias de margem. Se não tiver resultados, devolvemos 100% do seu dinheiro.
+                {/* Copy Solicitada */}
+                <div className="bg-emerald-50 border border-emerald-400 rounded-2xl p-4">
+                  <p className="text-sm sm:text-base text-emerald-950 font-medium">
+                    <strong>Condição especial exclusiva para você!</strong> Desbloqueie agora seu acesso ao Xô Papada com uma oferta especial.
                   </p>
                 </div>
-              </div>
-            </div>
 
-            {/* Secondary CTA for convenience */}
-            <div className="pb-8">
-              <a
-                href={checkoutUrl}
-                onClick={handleCheckoutClick}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-sm transition-colors"
-              >
-                <span>Acesso Imediato</span>
-                <ChevronRight className="w-4 h-4" />
-              </a>
-            </div>
+                {/* Botão Secundário Solicitado (Sem Valor) */}
+                <div>
+                  <a
+                    href={checkoutUrl}
+                    onClick={handleCheckoutClick}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-sm transition-colors cursor-pointer"
+                  >
+                    <span>Acesso Imediato</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </a>
+                </div>
+
+                {/* Included Bonus Cards & Guarantee Details */}
+                <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-sm text-left flex flex-col gap-3">
+                  <h3 className="font-bold text-sm text-[#AF5655] uppercase tracking-wide">
+                    O que está incluso no seu protocolo:
+                  </h3>
+                  <div className="space-y-2.5 text-xs text-gray-700">
+                    <div className="flex items-start gap-2">
+                      <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                      <span><strong>Protocolo Completo Tchau Papada:</strong> Exercícios de 5 a 10 min por dia adaptados ao seu caso.</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                      <span><strong>Bônus 1:</strong> Hábitos diários que pioram sua papada sem perceber.</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                      <span><strong>Bônus 2:</strong> Os 3 alimentos que incham seu rosto sem subir de peso.</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                      <span><strong>Bônus 3:</strong> A postura ao dormir e como corrigir em menos de 1 min.</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                      <span><strong>Bônus 4:</strong> Acesso exclusivo à comunidade e suporte tira-dúvidas.</span>
+                    </div>
+                  </div>
+
+                  {/* 30-Day Guarantee Box */}
+                  <div className="bg-amber-50/70 border border-amber-200/80 rounded-xl p-3 flex items-start gap-2.5 mt-2">
+                    <ShieldCheck className="w-6 h-6 text-amber-700 shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="text-xs font-bold text-amber-900">Garantia Incondicional de 30 Dias</h4>
+                      <p className="text-[11px] text-amber-800 leading-relaxed mt-0.5">
+                        15 dias para fazer o protocolo e mais 15 dias de margem. Se não tiver resultados, devolvemos 100% do seu dinheiro.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Trust Badges */}
+                  <div className="grid grid-cols-3 gap-2 pt-3 border-t border-gray-100 text-center text-[10px] text-gray-500 font-semibold">
+                    <div className="flex flex-col items-center gap-1">
+                      <Lock className="w-4 h-4 text-emerald-600" />
+                      <span>Compra 100% Segura</span>
+                    </div>
+                    <div className="flex flex-col items-center gap-1">
+                      <Clock className="w-4 h-4 text-emerald-600" />
+                      <span>Acesso Imediato</span>
+                    </div>
+                    <div className="flex flex-col items-center gap-1">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                      <span>Garantia Total</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </main>
@@ -1537,8 +1461,7 @@ export default function App() {
                 Falta pouco para terminar!
               </p>
               <p className="text-sm text-gray-600 mt-2 leading-relaxed">
-                Menos de <strong>15 segundos</strong> para finalizar o teste e receber seu protocolo
-                personalizado.
+                Menos de <strong>15 segundos</strong> para finalizar o teste e receber seu protocolo personalizado.
               </p>
             </div>
 
